@@ -1,0 +1,2 @@
+# Stockify
+Stock predictor Extension
