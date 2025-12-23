@@ -1,0 +1,68 @@
+body {
+  font-family: Arial, sans-serif;
+  width: 300px;
+  padding: 10px;
+}
+
+h2, h3 {
+  margin: 8px 0;
+}
+
+.search-container {
+  position: relative;
+  width: 100%;
+}
+
+input {
+  width: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  margin-bottom: 5px;
+}
+
+#search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  position: absolute;
+  width: 100%;
+  background: #fff;
+  z-index: 10;
+}
+
+#search-results li {
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+#search-results li:hover {
+  background-color: #f0f0f0;
+}
+
+button {
+  padding: 6px 10px;
+  margin-top: 5px;
+}
+
+#results p {
+  margin: 4px 0;
+}
+
+#savedStocks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+#savedStocks .chip {
+  padding: 5px 8px;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+}

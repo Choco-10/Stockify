@@ -1,0 +1,44 @@
+[
+  {
+    "symbol": "RELIANCE.NS",
+    "name": "Reliance Industries Ltd",
+    "exchange": "NSE",
+    "country": "IN",
+    "currency": "INR"
+  },
+  {
+    "symbol": "TCS.NS",
+    "name": "Tata Consultancy Services Ltd",
+    "exchange": "NSE",
+    "country": "IN",
+    "currency": "INR"
+  },
+  {
+    "symbol": "HDFCBANK.NS",
+    "name": "HDFC Bank Ltd",
+    "exchange": "NSE",
+    "country": "IN",
+    "currency": "INR"
+  },
+  {
+    "symbol": "INFY.NS",
+    "name": "Infosys Ltd",
+    "exchange": "NSE",
+    "country": "IN",
+    "currency": "INR"
+  },
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc",
+    "exchange": "NASDAQ",
+    "country": "US",
+    "currency": "USD"
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "Alphabet Inc",
+    "exchange": "NASDAQ",
+    "country": "US",
+    "currency": "USD"
+  }
+]
