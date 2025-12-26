@@ -1,44 +1,58 @@
 [
   {
-    "symbol": "RELIANCE.NS",
-    "name": "Reliance Industries Ltd",
-    "exchange": "NSE",
-    "country": "IN",
-    "currency": "INR"
+    "symbol": "GOOG",
+    "name": "Alphabet Inc.",
+    "exchange": "NMS",
+    "country": "United States",
+    "currency": "USD"
+  },
+  {
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation",
+    "exchange": "NMS",
+    "country": "United States",
+    "currency": "USD"
   },
   {
     "symbol": "TCS.NS",
-    "name": "Tata Consultancy Services Ltd",
-    "exchange": "NSE",
-    "country": "IN",
+    "name": "TATA CONSULTANCY SERV LT",
+    "exchange": "NSI",
+    "country": "India",
     "currency": "INR"
   },
   {
-    "symbol": "HDFCBANK.NS",
-    "name": "HDFC Bank Ltd",
-    "exchange": "NSE",
-    "country": "IN",
-    "currency": "INR"
-  },
-  {
-    "symbol": "INFY.NS",
-    "name": "Infosys Ltd",
-    "exchange": "NSE",
-    "country": "IN",
-    "currency": "INR"
+    "symbol": "MSFT",
+    "name": "Microsoft Corporation",
+    "exchange": "NMS",
+    "country": "United States",
+    "currency": "USD"
   },
   {
     "symbol": "AAPL",
-    "name": "Apple Inc",
-    "exchange": "NASDAQ",
-    "country": "US",
+    "name": "Apple Inc.",
+    "exchange": "NMS",
+    "country": "United States",
     "currency": "USD"
   },
   {
-    "symbol": "GOOGL",
-    "name": "Alphabet Inc",
-    "exchange": "NASDAQ",
-    "country": "US",
+    "symbol": "RELIANCE.NS",
+    "name": "RELIANCE INDUSTRIES LTD",
+    "exchange": "NSI",
+    "country": "India",
+    "currency": "INR"
+  },
+  {
+    "symbol": "INFY",
+    "name": "Infosys Limited",
+    "exchange": "NYQ",
+    "country": "India",
     "currency": "USD"
+  },
+  {
+    "symbol": "INFY.NS",
+    "name": "INFOSYS LIMITED",
+    "exchange": "NSI",
+    "country": "India",
+    "currency": "INR"
   }
 ]

@@ -8,6 +8,7 @@ import json
 from fastapi import Query
 from rapidfuzz import fuzz, process
 from pathlib import Path
+import yfinance as yf
 
 from train import predict_next_day, update_stock_model
 
@@ -25,11 +26,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load master stock list once at startup
-STOCKS_FILE = Path(__file__).parent / "stocks" / "master_stocks.json"
-with open(STOCKS_FILE, "r", encoding="utf-8") as f:
-    MASTER_STOCK_LIST = json.load(f)
 
+STOCKS_FILE = Path(__file__).parent / "stocks" / "master_stocks.json"
+os.makedirs(STOCKS_FILE.parent, exist_ok=True)
+
+
+def load_master_stocks():
+    if not STOCKS_FILE.exists():
+        return []
+    with open(STOCKS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_master_stocks(stocks):
+    with open(STOCKS_FILE, "w", encoding="utf-8") as f:
+        json.dump(stocks, f, indent=2, ensure_ascii=False)
+
+def update_master_stock(new_stock: dict):
+    stocks = load_master_stocks()
+    exists = any(s["symbol"] == new_stock["symbol"] for s in stocks)
+    if not exists:
+        stocks.append(new_stock)
+        save_master_stocks(stocks)
+
+def fetch_stock_info(symbol: str):
+    ticker = yf.Ticker(symbol)
+    info = ticker.info
+    return {
+        "symbol": symbol.upper(),
+        "name": info.get("shortName", symbol.upper()) or symbol.upper(),
+        "exchange": info.get("exchange", "N/A"),
+        "country": info.get("country", "N/A"),
+        "currency": info.get("currency", "N/A")
+    }
 
 class UpdateRequest(BaseModel):
     symbols: List[str]
@@ -42,18 +70,20 @@ def search_stocks(q: str = Query(..., min_length=1, description="Company name or
     Uses prefix and fuzzy matching.
     """
     query = q.lower().strip()
+    stocks_list = load_master_stocks()
     results = []
 
     # Exact or prefix matches
-    for stock in MASTER_STOCK_LIST:
+    for stock in stocks_list:
         name_lower = stock["name"].lower()
-        if query in name_lower:
+        stock_symbol = stock["symbol"].lower()
+        if name_lower.startswith(query) or stock_symbol.startswith(query):
             results.append(stock)
 
     # If not enough results, use fuzzy matching
     if len(results) < 5:
         # Build a map: name -> stock
-        name_map = {stock["name"]: stock for stock in MASTER_STOCK_LIST}
+        name_map = {stock["name"]: stock for stock in stocks_list}
         fuzzy_matches = process.extract(query, name_map.keys(), scorer=fuzz.partial_ratio, limit=5)
         for match_name, score, _ in fuzzy_matches:
             stock = name_map[match_name]
@@ -66,8 +96,23 @@ def search_stocks(q: str = Query(..., min_length=1, description="Company name or
 
 @app.get("/predict")
 def predict(symbol: str):
+    symbol = symbol.upper().strip()
     try:
         result = predict_next_day(symbol)
+        stocks_list = load_master_stocks()
+        if not any(s["symbol"] == symbol for s in stocks_list):
+            try:
+                stock_info = fetch_stock_info(symbol)
+            except Exception:
+                stock_info = {
+                    "symbol": symbol,
+                    "name": symbol,
+                    "exchange": "N/A",
+                    "country": "N/A",
+                    "currency": "N/A"
+                }
+            update_master_stock(stock_info)
+
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
