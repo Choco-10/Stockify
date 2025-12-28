@@ -4,6 +4,9 @@
   "version": "1.0",
   "description": "Get next-day stock price prediction using LSTM",
   "permissions": ["storage", "alarms"],
+  "host_permissions": [
+    "https://stockify-server-90a0.onrender.com/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon.png"

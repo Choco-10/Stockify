@@ -1,5 +1,5 @@
 const API_URL = "https://stockify-server-90a0.onrender.com";
-const REFRESH_INTERVAL_MIN = 60; // refresh every 60 minutes
+const REFRESH_INTERVAL_MIN = 300; // refresh every 60 minutes
 
 // Schedule alarm
 chrome.alarms.create("refreshStocks", { periodInMinutes: REFRESH_INTERVAL_MIN });
