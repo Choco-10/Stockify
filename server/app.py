@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+﻿from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -37,9 +37,11 @@ def load_master_stocks():
     with open(STOCKS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def save_master_stocks(stocks):
     with open(STOCKS_FILE, "w", encoding="utf-8") as f:
         json.dump(stocks, f, indent=2, ensure_ascii=False)
+
 
 def update_master_stock(new_stock: dict):
     stocks = load_master_stocks()
@@ -47,6 +49,7 @@ def update_master_stock(new_stock: dict):
     if not exists:
         stocks.append(new_stock)
         save_master_stocks(stocks)
+
 
 def fetch_stock_info(symbol: str):
     ticker = yf.Ticker(symbol)
@@ -58,6 +61,7 @@ def fetch_stock_info(symbol: str):
         "country": info.get("country", "N/A"),
         "currency": info.get("currency", "N/A")
     }
+
 
 class UpdateRequest(BaseModel):
     symbols: List[str]
@@ -138,12 +142,12 @@ def update_stocks(req: UpdateRequest):
 @app.get("/available_stocks")
 def available_stocks():
     """
-    Return list of stocks that already have trained models on the server.
+    Return list of stocks that already have trained ONNX models on the server.
     """
     stocks = []
     for file in os.listdir(MODELS_DIR):
-        if file.endswith(".pt"):
-            symbol = file.replace(".pt", "")
+        if file.endswith(".onnx"):
+            symbol = file.replace(".onnx", "")
             stocks.append(symbol)
     return {"stocks": stocks}
 
@@ -151,5 +155,3 @@ def available_stocks():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-

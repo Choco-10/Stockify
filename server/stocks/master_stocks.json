@@ -54,5 +54,12 @@
     "exchange": "NSI",
     "country": "India",
     "currency": "INR"
+  },
+  {
+    "symbol": "CSCO",
+    "name": "Cisco Systems, Inc.",
+    "exchange": "NMS",
+    "country": "United States",
+    "currency": "USD"
   }
 ]

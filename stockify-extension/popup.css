@@ -1,11 +1,49 @@
-body {
-  font-family: Arial, sans-serif;
-  width: 300px;
-  padding: 10px;
+:root {
+  --bg-1: #f3f7ff;
+  --bg-2: #ffffff;
+  --ink: #13233a;
+  --muted: #5b6d82;
+  --line: #d7e3f4;
+  --brand: #1e6fcd;
+  --brand-strong: #1353a0;
+  --chip: #e8f1fc;
 }
 
-h2, h3 {
-  margin: 8px 0;
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 460px;
+  min-width: 460px;
+  padding: 14px;
+  color: var(--ink);
+  font-family: "Segoe UI", "Calibri", "Trebuchet MS", sans-serif;
+  background:
+    radial-gradient(120px 80px at 95% -10%, #d4e9ff 0%, transparent 70%),
+    linear-gradient(165deg, var(--bg-1), var(--bg-2));
+}
+
+h2 {
+  margin: 2px 0 10px;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+}
+
+h3 {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
 }
 
 .search-container {
@@ -13,39 +51,73 @@ h2, h3 {
   width: 100%;
 }
 
-input {
+#stock-search {
   width: 100%;
-  padding: 6px;
-  box-sizing: border-box;
-  margin-bottom: 5px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+
+#stock-search:focus {
+  border-color: #8fb9ef;
+  box-shadow: 0 0 0 3px rgba(30, 111, 205, 0.14);
 }
 
 #search-results {
   list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 150px;
+  padding: 4px;
+  margin: 6px 0 0;
+  max-height: 160px;
   overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   position: absolute;
-  width: 100%;
+  left: 0;
+  right: 0;
   background: #fff;
-  z-index: 10;
+  box-shadow: 0 8px 18px rgba(19, 35, 58, 0.12);
+  z-index: 20;
 }
 
 #search-results li {
-  padding: 5px 8px;
+  padding: 8px 9px;
+  border-radius: 7px;
   cursor: pointer;
+  font-size: 13px;
 }
 
 #search-results li:hover {
-  background-color: #f0f0f0;
+  background-color: #eef5ff;
 }
 
-button {
-  padding: 6px 10px;
-  margin-top: 5px;
+#predictBtn {
+  min-height: 36px;
+  padding: 8px 13px;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+#predictBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(19, 83, 160, 0.28);
+}
+
+#results {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 #results p {
@@ -55,14 +127,21 @@ button {
 #savedStocks {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 5px;
+  gap: 7px;
+  margin-top: 6px;
 }
 
 #savedStocks .chip {
-  padding: 5px 8px;
-  background-color: #f0f0f0;
-  border-radius: 12px;
+  padding: 6px 9px;
+  background-color: var(--chip);
+  border: 1px solid #d4e4f9;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
+  color: #2a4c76;
 }
+
+#savedStocks .chip:hover {
+  background-color: #dcecff;
+}
+

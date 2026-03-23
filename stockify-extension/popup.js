@@ -1,6 +1,3 @@
-const API_URL = "https://stockify-server-90a0.onrender.com";
-
-
 const searchInput = document.getElementById("stock-search");
 const resultsList = document.getElementById("search-results");
 const predictBtn = document.getElementById("predictBtn");
@@ -11,6 +8,63 @@ const searchContainer = document.querySelector(".search-container");
 
 let selectedSymbol = "";
 let timeout = null;
+
+function renderPredictionHtml(data, symbolCurrency) {
+  return `
+      <p>Symbol: ${data.symbol}</p>
+      <p>Current Price: ${symbolCurrency}${data.current_price.toFixed(2)}</p>
+      <p>Next Day Prediction: ${symbolCurrency}${data.next_day_prediction.toFixed(2)}</p>
+    `;
+}
+
+async function getSymbolCurrency(symbol) {
+  try {
+    const stockRes = await fetch(`${CONFIG.API_URL}/search?q=${encodeURIComponent(symbol)}`);
+    const stockList = await stockRes.json();
+    const stockData = stockList.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
+    return getCurrencySymbol(stockData?.currency || "USD");
+  } catch (err) {
+    console.error("Failed to resolve currency", err);
+    return getCurrencySymbol("USD");
+  }
+}
+
+async function restoreAnalysisState() {
+  const state = await new Promise((resolve) => {
+    chrome.storage.local.get({ analysisState: null }, (res) => resolve(res.analysisState));
+  });
+
+  if (!state) {
+    return;
+  }
+
+  if (state.status === "running") {
+    resultsDiv.innerHTML = `Analyzing ${state.symbol}...`;
+    if (state.symbol) {
+      searchInput.value = state.symbol;
+      selectedSymbol = state.symbol;
+    }
+    return;
+  }
+
+  if (state.status === "error") {
+    resultsDiv.innerHTML = `<p style="color:red;">Error: ${state.error || "Prediction failed"}</p>`;
+    if (state.symbol) {
+      searchInput.value = state.symbol;
+      selectedSymbol = state.symbol;
+    }
+    return;
+  }
+
+  if (state.status === "done" && state.data) {
+    const symbolCurrency = await getSymbolCurrency(state.symbol || state.data.symbol);
+    resultsDiv.innerHTML = renderPredictionHtml(state.data, symbolCurrency);
+    if (state.symbol) {
+      searchInput.value = state.symbol;
+      selectedSymbol = state.symbol;
+    }
+  }
+}
 
 // --- Autocomplete search ---
 searchInput.addEventListener("input", () => {
@@ -28,7 +82,7 @@ searchInput.addEventListener("input", () => {
 
   timeout = setTimeout(async () => {
     try {
-      const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`${CONFIG.API_URL}/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
 
       resultsList.innerHTML = "";
@@ -81,28 +135,27 @@ predictBtn.addEventListener("click", async () => {
   const symbol = selectedSymbol || searchInput.value.trim().toUpperCase();
   if (!symbol) return;
 
-  resultsDiv.innerHTML = "Loading...";
+  resultsDiv.innerHTML = `Analyzing ${symbol}...`;
 
   try {
-    // 1️⃣ Fetch prediction
-    const res = await fetch(`${API_URL}/predict?symbol=${symbol}`);
-    if (!res.ok) throw new Error("Prediction failed");
-    const data = await res.json();
+    const bgResponse = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type: "runPrediction", symbol }, (response) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+        resolve(response);
+      });
+    });
 
-    // 2️⃣ Fetch updated master stocks to get correct currency
-    const stockRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(symbol)}`);
-    const stockList = await stockRes.json();
-    const stockData = stockList.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
-    const symbolCurrency = getCurrencySymbol(stockData?.currency || "USD");
+    if (!bgResponse || !bgResponse.ok || !bgResponse.data) {
+      throw new Error(bgResponse?.error || "Prediction failed");
+    }
 
-    // 3️⃣ Display prediction with correct currency symbol
-    resultsDiv.innerHTML = `
-      <p>Symbol: ${data.symbol}</p>
-      <p>Current Price: ${symbolCurrency}${data.current_price.toFixed(2)}</p>
-      <p>Next Day Prediction: ${symbolCurrency}${data.next_day_prediction.toFixed(2)}</p>
-    `;
+    const symbolCurrency = await getSymbolCurrency(symbol);
+    resultsDiv.innerHTML = renderPredictionHtml(bgResponse.data, symbolCurrency);
 
-    // 4️⃣ Update stock usage timestamp
     chrome.storage.local.get({ stockUsage: {} }, (res) => {
       const usage = res.stockUsage;
       usage[symbol] = { lastUsed: Date.now() };
@@ -112,6 +165,14 @@ predictBtn.addEventListener("click", async () => {
   } catch (err) {
     resultsDiv.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
   }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local" || !changes.analysisState) {
+    return;
+  }
+
+  restoreAnalysisState();
 });
 
 
@@ -128,7 +189,7 @@ async function renderSavedStocks() {
 
   let allStocks = [];
   try {
-    const res = await fetch(`${API_URL}/available_stocks`);
+    const res = await fetch(`${CONFIG.API_URL}/available_stocks`);
     const data = await res.json();
     allStocks = data.stocks;
   } catch (err) {
@@ -159,3 +220,4 @@ async function renderSavedStocks() {
 
 // --- Init ---
 renderSavedStocks();
+restoreAnalysisState();

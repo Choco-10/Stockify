@@ -5,4 +5,4 @@ Stock predictor Extension
 
 
 
-.uvicorn app:app --reload
+uvicorn app:app --reload
