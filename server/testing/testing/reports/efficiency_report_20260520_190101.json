@@ -1,0 +1,209 @@
+{
+  "generated_at": "2026-05-20T19:01:01.491474Z",
+  "config": {
+    "SEQ_LENGTH": 60,
+    "test_size": 120,
+    "warmup": 10
+  },
+  "summary": {
+    "MAPE_percent": NaN,
+    "sMAPE_percent": NaN,
+    "directional_accuracy_percent": NaN,
+    "symbols_tested": 9,
+    "labels": {
+      "price_accuracy": "worst",
+      "direction_accuracy": "worst"
+    }
+  },
+  "symbols": [
+    {
+      "symbol": "AAPL",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": 2.730613,
+        "RMSE": 3.743111,
+        "MAPE_percent": 1.023938,
+        "sMAPE_percent": 1.024723,
+        "directional_accuracy_percent": 57.5,
+        "avg_latency_ms": 2.102738,
+        "p95_latency_ms": 2.981005,
+        "throughput_preds_per_sec": 475.570381
+      },
+      "labels": {
+        "price_accuracy": "very_strong",
+        "direction_accuracy": "good",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "CSCO",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": 1.166365,
+        "RMSE": 2.005969,
+        "MAPE_percent": 1.390194,
+        "sMAPE_percent": 1.389704,
+        "directional_accuracy_percent": 62.5,
+        "avg_latency_ms": 2.299725,
+        "p95_latency_ms": 3.814285,
+        "throughput_preds_per_sec": 434.834685
+      },
+      "labels": {
+        "price_accuracy": "very_strong",
+        "direction_accuracy": "very_strong",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "GOOG",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": 4.353372,
+        "RMSE": 6.121728,
+        "MAPE_percent": 1.339932,
+        "sMAPE_percent": 1.343552,
+        "directional_accuracy_percent": 49.166667,
+        "avg_latency_ms": 1.865886,
+        "p95_latency_ms": 2.640855,
+        "throughput_preds_per_sec": 535.938318
+      },
+      "labels": {
+        "price_accuracy": "very_strong",
+        "direction_accuracy": "poor",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "INFY",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": 0.298511,
+        "RMSE": 0.42154,
+        "MAPE_percent": 1.920811,
+        "sMAPE_percent": 1.913786,
+        "directional_accuracy_percent": 49.166667,
+        "avg_latency_ms": 1.761811,
+        "p95_latency_ms": 2.49655,
+        "throughput_preds_per_sec": 567.597802
+      },
+      "labels": {
+        "price_accuracy": "good",
+        "direction_accuracy": "poor",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "INFY.NS",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": NaN,
+        "RMSE": NaN,
+        "MAPE_percent": NaN,
+        "sMAPE_percent": NaN,
+        "directional_accuracy_percent": NaN,
+        "avg_latency_ms": 1.677538,
+        "p95_latency_ms": 2.046,
+        "throughput_preds_per_sec": 596.111619
+      },
+      "labels": {
+        "price_accuracy": "worst",
+        "direction_accuracy": "worst",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "MSFT",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": 5.590008,
+        "RMSE": 8.068413,
+        "MAPE_percent": 1.318444,
+        "sMAPE_percent": 1.312762,
+        "directional_accuracy_percent": 45.833333,
+        "avg_latency_ms": 1.692133,
+        "p95_latency_ms": 2.366445,
+        "throughput_preds_per_sec": 590.97019
+      },
+      "labels": {
+        "price_accuracy": "very_strong",
+        "direction_accuracy": "poor",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "NVDA",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": 3.282567,
+        "RMSE": 4.241195,
+        "MAPE_percent": 1.738268,
+        "sMAPE_percent": 1.738488,
+        "directional_accuracy_percent": 56.666667,
+        "avg_latency_ms": 1.683174,
+        "p95_latency_ms": 2.040005,
+        "throughput_preds_per_sec": 594.115769
+      },
+      "labels": {
+        "price_accuracy": "good",
+        "direction_accuracy": "good",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": NaN,
+        "RMSE": NaN,
+        "MAPE_percent": NaN,
+        "sMAPE_percent": NaN,
+        "directional_accuracy_percent": NaN,
+        "avg_latency_ms": 1.916738,
+        "p95_latency_ms": 2.73608,
+        "throughput_preds_per_sec": 521.719664
+      },
+      "labels": {
+        "price_accuracy": "worst",
+        "direction_accuracy": "worst",
+        "latency": "excellent"
+      }
+    },
+    {
+      "symbol": "TCS.NS",
+      "status": "ok",
+      "samples": 120,
+      "target_type": "return",
+      "metrics": {
+        "MAE": NaN,
+        "RMSE": NaN,
+        "MAPE_percent": NaN,
+        "sMAPE_percent": NaN,
+        "directional_accuracy_percent": NaN,
+        "avg_latency_ms": 1.909367,
+        "p95_latency_ms": 3.8473,
+        "throughput_preds_per_sec": 523.733707
+      },
+      "labels": {
+        "price_accuracy": "worst",
+        "direction_accuracy": "worst",
+        "latency": "excellent"
+      }
+    }
+  ]
+}
