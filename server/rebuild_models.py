@@ -45,16 +45,18 @@ def main():
 
     results = []
     for sym in symbols:
-        print(f"Processing {sym}...")
+        print(f"Processing {sym} (single model + ensemble)...")
         try:
-            # train_new_stock will fetch data and export ONNX/scaler
+            # Train single model
             train_new_stock(sym)
+            # Train ensemble (3 models with different seq lengths)
+            train_new_stock(sym, use_ensemble=True)
             results.append({"symbol": sym, "status": "ok"})
         except Exception as e:
             traceback.print_exc()
             results.append({"symbol": sym, "status": "error", "error": str(e)})
-        # brief pause to avoid hammering APIs
-        sleep(1.0)
+        # pause to avoid hammering yfinance APIs
+        sleep(2.0)
 
     print("Rebuild complete. Summary:")
     for r in results:

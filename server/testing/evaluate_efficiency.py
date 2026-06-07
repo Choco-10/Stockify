@@ -1,5 +1,13 @@
+"""
+Efficiency evaluation script for stock prediction models.
+
+Evaluates prediction quality (MAE, RMSE, MAPE, sMAPE, directional accuracy)
+and runtime efficiency (latency, throughput) for all trained ONNX models.
+"""
 import argparse
+import glob
 import json
+import logging
 import math
 import os
 import sys
@@ -11,32 +19,75 @@ import pandas as pd
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+REPORTS_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from config import DATA_DIR, MODELS_DIR, SEQ_LENGTH
 from train import inverse_with_metadata, load_model, normalize_with_metadata
-from utils import fetch_stock_data
+from utils import add_technical_features, fetch_stock_data, get_cached_technical_features
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Label threshold constants (configurable)
+# ---------------------------------------------------------------------------
+MAPE_THRESHOLDS = {
+    "very_strong": 1.5,
+    "good": 3.0,
+    "acceptable": 5.0,
+    "poor": 8.0,
+}
+
+DIRECTION_THRESHOLDS = {
+    "very_strong": 60.0,
+    "good": 55.0,
+    "acceptable": 50.0,
+    "poor": 45.0,
+}
+
+LATENCY_THRESHOLDS = {
+    "excellent": 5.0,
+    "good": 20.0,
+    "acceptable": 50.0,
+    "poor": 100.0,
+}
+
+# How many days back to exclude (today and yesterday) to avoid partial data
+CUTOFF_DAYS_BACK = 2
+
+
+def get_cutoff_date():
+    """Return today's date minus CUTOFF_DAYS_BACK as a date object."""
+    return (datetime.now(timezone.utc) - timedelta(days=CUTOFF_DAYS_BACK)).date()
 
 
 def discover_symbols():
-    symbols = []
-    for name in os.listdir(MODELS_DIR):
-        if name.endswith(".onnx"):
-            symbols.append(name[:-5].upper())
+    """Discover all trained ONNX models in MODELS_DIR, excluding ensemble suffixes."""
+    pattern = os.path.join(MODELS_DIR, "*.onnx")
+    symbols = set()
+    for path in glob.glob(pattern):
+        name = os.path.basename(path)
+        # Remove .onnx extension
+        stem = name[:-5].upper()
+        # Skip ensemble member models (e.g., AAPL_ENS0, AAPL_ENS1)
+        if "_ENS" in stem:
+            continue
+        symbols.add(stem)
     return sorted(symbols)
 
 
 def load_prices(symbol):
+    """Load single-feature (Close-only) prices from CSV. Returns np.array or None."""
     path = os.path.join(DATA_DIR, f"{symbol}.csv")
     if not os.path.exists(path):
         return None
 
+    cutoff_date = get_cutoff_date()
+
     # Try to read a headered CSV first and detect a Close column.
     try:
         df = pd.read_csv(path)
-        # Filter out the most recent rows (keep only up to today - 2 days)
-        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=2)).date()
         # detect a Date column (case-insensitive)
         date_col = None
         for c in df.columns:
@@ -47,12 +98,11 @@ def load_prices(symbol):
             try:
                 df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
                 df = df[df[date_col].dt.date <= cutoff_date]
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 pass
         # Normalize common Close column names
-        cols = [c for c in df.columns]
         close_col = None
-        for c in cols:
+        for c in df.columns:
             if str(c).strip().lower() == "close":
                 close_col = c
                 break
@@ -60,21 +110,19 @@ def load_prices(symbol):
             prices = pd.to_numeric(df[close_col], errors="coerce").dropna().values.astype(np.float32)
             if prices.size > 0:
                 return prices.reshape(-1, 1)
-    except Exception:
-        # Fall through to legacy parsing below
-        pass
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, ValueError, TypeError) as e:
+        logger.debug("Headered CSV parse failed for %s: %s. Trying legacy fallback.", symbol, e)
 
     # Legacy fallback: CSV without header, assume second column contains price
     try:
         df = pd.read_csv(path, header=None)
         # attempt to parse first column as date and trim latest 2 days if possible
-        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=2)).date()
         try:
             parsed = pd.to_datetime(df.iloc[:, 0], errors="coerce")
             if parsed.notna().any():
                 mask = parsed.dt.date <= cutoff_date
                 df = df[mask]
-        except Exception:
+        except (ValueError, TypeError, IndexError):
             pass
 
         if df.shape[1] < 2 or df.empty:
@@ -83,55 +131,178 @@ def load_prices(symbol):
         if prices.size == 0:
             return None
         return prices.reshape(-1, 1)
-    except Exception:
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, ValueError, TypeError, IndexError):
         return None
 
 
-def percentile(values, pct):
-    if not values:
-        return float("nan")
-    return float(np.percentile(np.array(values, dtype=np.float64), pct))
-
-
 def label_mape(mape_percent):
-    if mape_percent < 1.5:
+    if mape_percent < MAPE_THRESHOLDS["very_strong"]:
         return "very_strong"
-    if mape_percent < 3.0:
+    if mape_percent < MAPE_THRESHOLDS["good"]:
         return "good"
-    if mape_percent <= 5.0:
+    if mape_percent <= MAPE_THRESHOLDS["acceptable"]:
         return "acceptable"
-    if mape_percent <= 8.0:
+    if mape_percent <= MAPE_THRESHOLDS["poor"]:
         return "poor"
     return "worst"
 
 
 def label_direction(direction_percent):
-    if direction_percent >= 60.0:
+    if direction_percent >= DIRECTION_THRESHOLDS["very_strong"]:
         return "very_strong"
-    if direction_percent >= 55.0:
+    if direction_percent >= DIRECTION_THRESHOLDS["good"]:
         return "good"
-    if direction_percent >= 50.0:
+    if direction_percent >= DIRECTION_THRESHOLDS["acceptable"]:
         return "acceptable"
-    if direction_percent >= 45.0:
+    if direction_percent >= DIRECTION_THRESHOLDS["poor"]:
         return "poor"
     return "worst"
 
 
 def label_latency(avg_latency_ms):
-    if avg_latency_ms < 5.0:
+    if avg_latency_ms < LATENCY_THRESHOLDS["excellent"]:
         return "excellent"
-    if avg_latency_ms <= 20.0:
+    if avg_latency_ms <= LATENCY_THRESHOLDS["good"]:
         return "good"
-    if avg_latency_ms <= 50.0:
+    if avg_latency_ms <= LATENCY_THRESHOLDS["acceptable"]:
         return "acceptable"
-    if avg_latency_ms <= 100.0:
+    if avg_latency_ms <= LATENCY_THRESHOLDS["poor"]:
         return "poor"
     return "worst"
 
 
 def direction_binary(returns):
-    # Strict up/down labeling: zero is treated as up to keep binary classes only.
+    """
+    Convert returns to binary direction labels: 1 = up/unchanged, -1 = down.
+    Zero return is treated as up to keep only two classes.
+    """
     return np.where(returns >= 0.0, 1, -1)
+
+
+def _prepare_multi_feature_data(symbol, model_num_features):
+    """
+    Prepare multi-feature DataFrame for evaluation using the same feature
+    engineering as training (OHLCV + technical indicators).
+
+    Returns (features_norm, close_vals) or None if data is insufficient.
+    Features_norm is a 2D array of normalized features.
+    Close_vals is a 1D array of raw close prices.
+    """
+    cutoff_date = get_cutoff_date()
+
+    try:
+        df = fetch_stock_data(symbol, save_csv=False)
+    except (ValueError, RuntimeError, ConnectionError):
+        # If fetch fails, try reading local CSV directly
+        path = os.path.join(DATA_DIR, f"{symbol}.csv")
+        try:
+            df = pd.read_csv(path)
+        except (FileNotFoundError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+            logger.debug("Unable to load multi-feature CSV data for %s: %s", symbol, e)
+            return None
+
+    # Trim to exclude the most recent 2 days
+    try:
+        # If Date is an index
+        if isinstance(df.index, pd.DatetimeIndex):
+            df = df[df.index.date <= cutoff_date]
+        else:
+            # detect Date column
+            date_col = None
+            for c in df.columns:
+                if str(c).strip().lower() == "date":
+                    date_col = c
+                    break
+            if date_col is not None:
+                try:
+                    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+                    df = df[df[date_col].dt.date <= cutoff_date]
+                except (ValueError, TypeError, AttributeError):
+                    pass
+    except (ValueError, TypeError, AttributeError):
+        pass
+
+    # Ensure all required columns exist before building features
+    required = ["Open", "High", "Low", "Close", "Volume"]
+    for col in required:
+        if col not in df.columns:
+            logger.warning("Missing required column '%s' in data for %s", col, symbol)
+            return None
+
+    # Use the same feature engineering as training (includes market regime features)
+    features = get_cached_technical_features(symbol, df)
+    actual_num_features = features.shape[1]
+
+    if actual_num_features != model_num_features:
+        logger.warning(
+            "Model expects %d features but feature engineering produced %d for %s",
+            model_num_features, actual_num_features, symbol
+        )
+        return None
+
+    close_vals = df["Close"].astype(float).values.astype(np.float32)
+
+    if len(features) <= SEQ_LENGTH + 1:
+        logger.warning("Not enough history for sequence evaluation for %s", symbol)
+        return None
+
+    return features, close_vals
+
+
+def _run_prediction_loop(onnx_session, seq_data, close_vals, scaler_meta, start_idx):
+    """
+    Shared prediction loop for both single-feature and multi-feature evaluation.
+
+    Args:
+        onnx_session: ONNX Runtime inference session
+        seq_data: sequence data array (numpy) of shape [N, features]
+        close_vals: raw close prices (1D array)
+        scaler_meta: scaler metadata dict
+        start_idx: index to start evaluation from
+
+    Returns:
+        (preds, actuals, prev_actuals, latencies_ms) as lists
+    """
+    preds = []
+    actuals = []
+    prev_actuals = []
+    latencies_ms = []
+
+    input_name = onnx_session.get_inputs()[0].name
+    target_type = scaler_meta.get("target_type", "price_norm")
+
+    for idx in range(start_idx, len(close_vals)):
+        seq_raw = seq_data[idx - SEQ_LENGTH:idx]
+        # Skip sequences with missing values
+        if np.isnan(seq_raw).any():
+            continue
+        seq_norm = normalize_with_metadata(seq_raw, scaler_meta)
+        model_input = np.expand_dims(seq_norm.astype(np.float32), axis=0)
+
+        t0 = time.perf_counter()
+        pred_out = onnx_session.run(None, {input_name: model_input})[0]
+        if np.isnan(pred_out).any():
+            continue
+        t1 = time.perf_counter()
+
+        actual_price = float(close_vals[idx])
+        prev_price = float(close_vals[idx - 1])
+
+        if target_type == "return":
+            pred_return = float(pred_out[0][0])
+            pred_price = float(prev_price * (1.0 + pred_return))
+        else:
+            pred_price = float(inverse_with_metadata(pred_out, scaler_meta)[0][0])
+
+        # Skip if actuals are invalid
+        if math.isnan(actual_price) or math.isnan(prev_price):
+            continue
+        preds.append(pred_price)
+        actuals.append(actual_price)
+        prev_actuals.append(prev_price)
+        latencies_ms.append((t1 - t0) * 1000.0)
+
+    return preds, actuals, prev_actuals, latencies_ms
 
 
 def evaluate_symbol(symbol, test_size=120, warmup=10):
@@ -143,11 +314,10 @@ def evaluate_symbol(symbol, test_size=120, warmup=10):
             "reason": "Model or scaler metadata missing",
         }
 
-    # Determine whether the model expects multi-feature input
     model_num_features = int(scaler_meta.get("num_features", 1))
 
-    # For single-feature models we can use legacy CSV parsing (Close-only)
     if model_num_features == 1:
+        # Single-feature: Close-only evaluation using legacy CSV parsing
         prices = load_prices(symbol)
         if prices is None:
             return {
@@ -164,141 +334,28 @@ def evaluate_symbol(symbol, test_size=120, warmup=10):
             }
 
         start_idx = max(SEQ_LENGTH, len(prices) - test_size)
+        close_vals = prices.flatten()
+        seq_data = prices  # single-feature prices are already N x 1
 
-        preds = []
-        actuals = []
-        prev_actuals = []
-        latencies_ms = []
-
-        input_name = onnx_session.get_inputs()[0].name
-
-        for idx in range(start_idx, len(prices)):
-            seq_raw = prices[idx - SEQ_LENGTH:idx]
-            # Skip sequences with missing values
-            if np.isnan(seq_raw).any():
-                continue
-            seq_norm = normalize_with_metadata(seq_raw, scaler_meta)
-            model_input = np.expand_dims(seq_norm.astype(np.float32), axis=0)
-
-            t0 = time.perf_counter()
-            pred_out = onnx_session.run(None, {input_name: model_input})[0]
-            if np.isnan(pred_out).any():
-                continue
-            t1 = time.perf_counter()
-
-            actual_price = float(prices[idx][0])
-            prev_price = float(prices[idx - 1][0])
-
-            target_type = scaler_meta.get("target_type", "price_norm")
-            if target_type == "return":
-                pred_return = float(pred_out[0][0])
-                pred_price = float(prev_price * (1.0 + pred_return))
-            else:
-                pred_price = float(inverse_with_metadata(pred_out, scaler_meta)[0][0])
-
-            # Skip if actuals are invalid
-            if math.isnan(actual_price) or math.isnan(prev_price):
-                continue
-            preds.append(pred_price)
-            actuals.append(actual_price)
-            prev_actuals.append(prev_price)
-            latencies_ms.append((t1 - t0) * 1000.0)
+        preds, actuals, prev_actuals, latencies_ms = _run_prediction_loop(
+            onnx_session, seq_data, close_vals, scaler_meta, start_idx
+        )
     else:
-        # Multi-feature model: attempt to load full OHLCV DataFrame
-        try:
-            df = fetch_stock_data(symbol, save_csv=False)
-        except Exception:
-            # If fetch fails, try reading local CSV directly
-            path = os.path.join(DATA_DIR, f"{symbol}.csv")
-            try:
-                df = pd.read_csv(path)
-            except Exception:
-                return {
-                    "symbol": symbol,
-                    "status": "skipped",
-                    "reason": "Unable to load multi-feature CSV data",
-                }
-
-        # Trim to exclude the most recent 2 days (today and yesterday)
-        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=2)).date()
-        try:
-            # If Date is an index
-            if isinstance(df.index, pd.DatetimeIndex):
-                df = df[df.index.date <= cutoff_date]
-            else:
-                # detect Date column
-                date_col = None
-                for c in df.columns:
-                    if str(c).strip().lower() == "date":
-                        date_col = c
-                        break
-                if date_col is not None:
-                    try:
-                        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-                        df = df[df[date_col].dt.date <= cutoff_date]
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-        # Ensure required feature columns exist
-        feature_cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
-        if len(feature_cols) != model_num_features:
+        # Multi-feature: use same feature engineering as training
+        result = _prepare_multi_feature_data(symbol, model_num_features)
+        if result is None:
             return {
                 "symbol": symbol,
                 "status": "skipped",
-                "reason": f"Model expects {model_num_features} features but CSV has {len(feature_cols)}",
-            }
-        if "Close" not in df.columns or len(df) <= SEQ_LENGTH + 1:
-            return {
-                "symbol": symbol,
-                "status": "skipped",
-                "reason": "Not enough history for sequence evaluation",
+                "reason": "Unable to load or prepare multi-feature data",
             }
 
-        features = df[feature_cols].values.astype(np.float32)
-        close_vals = df["Close"].astype(float).values.astype(np.float32)
-
+        features, close_vals = result
         start_idx = max(SEQ_LENGTH, len(features) - test_size)
 
-        preds = []
-        actuals = []
-        prev_actuals = []
-        latencies_ms = []
-
-        input_name = onnx_session.get_inputs()[0].name
-
-        for idx in range(start_idx, len(features)):
-            seq_raw = features[idx - SEQ_LENGTH:idx]
-            # Skip sequences with missing values
-            if np.isnan(seq_raw).any():
-                continue
-            seq_norm = normalize_with_metadata(seq_raw, scaler_meta)
-            model_input = np.expand_dims(seq_norm.astype(np.float32), axis=0)
-
-            t0 = time.perf_counter()
-            pred_out = onnx_session.run(None, {input_name: model_input})[0]
-            if np.isnan(pred_out).any():
-                continue
-            t1 = time.perf_counter()
-
-            actual_price = float(close_vals[idx])
-            prev_price = float(close_vals[idx - 1])
-
-            target_type = scaler_meta.get("target_type", "price_norm")
-            if target_type == "return":
-                pred_return = float(pred_out[0][0])
-                pred_price = float(prev_price * (1.0 + pred_return))
-            else:
-                pred_price = float(inverse_with_metadata(pred_out, scaler_meta)[0][0])
-
-            # Skip if actuals are invalid
-            if math.isnan(actual_price) or math.isnan(prev_price):
-                continue
-            preds.append(pred_price)
-            actuals.append(actual_price)
-            prev_actuals.append(prev_price)
-            latencies_ms.append((t1 - t0) * 1000.0)
+        preds, actuals, prev_actuals, latencies_ms = _run_prediction_loop(
+            onnx_session, features, close_vals, scaler_meta, start_idx
+        )
 
     preds_np = np.array(preds, dtype=np.float64)
     actuals_np = np.array(actuals, dtype=np.float64)
@@ -338,7 +395,7 @@ def evaluate_symbol(symbol, test_size=120, warmup=10):
         timing_slice = latencies_ms
 
     avg_latency_ms = float(np.mean(timing_slice))
-    p95_latency_ms = percentile(timing_slice, 95)
+    p95_latency_ms = float(np.percentile(np.array(timing_slice, dtype=np.float64), 95))
     throughput = float(1000.0 / avg_latency_ms) if avg_latency_ms > 0 else float("inf")
 
     return {
@@ -401,6 +458,7 @@ def main():
 
     results = []
     for symbol in symbols:
+        logger.info("Evaluating %s...", symbol)
         results.append(
             evaluate_symbol(
                 symbol,
@@ -420,7 +478,7 @@ def main():
         "symbols": results,
     }
 
-    reports_dir = os.path.join("testing", "reports")
+    reports_dir = os.path.join(REPORTS_ROOT, "testing", "reports")
     os.makedirs(reports_dir, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     out_path = os.path.join(reports_dir, f"efficiency_report_{ts}.json")
@@ -433,4 +491,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     main()

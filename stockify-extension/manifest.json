@@ -5,8 +5,16 @@
   "description": "Get next-day stock price prediction using LSTM",
   "permissions": ["storage", "alarms"],
   "host_permissions": [
-    "https://stockify-server-90a0.onrender.com/*"
+    "https://stockify-server-90a0.onrender.com/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
   ],
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon.png"

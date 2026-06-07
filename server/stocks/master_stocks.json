@@ -61,5 +61,19 @@
     "exchange": "NMS",
     "country": "United States",
     "currency": "USD"
+  },
+  {
+    "symbol": "AMZN",
+    "name": "Amazon.com, Inc.",
+    "exchange": "NMS",
+    "country": "United States",
+    "currency": "USD"
+  },
+  {
+    "symbol": "META",
+    "name": "Meta Platforms, Inc.",
+    "exchange": "NMS",
+    "country": "United States",
+    "currency": "USD"
   }
 ]

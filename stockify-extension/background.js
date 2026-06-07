@@ -1,32 +1,14 @@
 importScripts('config.js');
 
-const REFRESH_INTERVAL_MIN = 300; // refresh every 60 minutes
-
 async function runPrediction(symbol) {
-  const res = await fetch(`${CONFIG.API_URL}/predict?symbol=${encodeURIComponent(symbol)}`);
+  const apiUrl = await getConfiguredApiUrl();
+  const res = await fetch(`${apiUrl}/predict?symbol=${encodeURIComponent(symbol)}`);
   if (!res.ok) {
     throw new Error(`Prediction failed with status ${res.status}`);
   }
 
   return res.json();
 }
-
-// Schedule alarm
-chrome.alarms.create("refreshStocks", { periodInMinutes: REFRESH_INTERVAL_MIN });
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== "refreshStocks") return;
-
-  chrome.storage.local.get({stocks: []}, async (res) => {
-    for (let symbol of res.stocks) {
-      try {
-        await fetch(`${CONFIG.API_URL}/predict?symbol=${symbol}`);
-      } catch (err) {
-        console.error(`Failed to refresh ${symbol}:`, err);
-      }
-    }
-  });
-});
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== 'runPrediction') {
@@ -43,6 +25,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     analysisState: {
       status: 'running',
       symbol,
+      hasModel: message.hasModel || false,
       startedAt: Date.now()
     }
   });
